@@ -1,22 +1,22 @@
 # n8n Thailand Visa Monitor
 
-Production-style n8n workflow that monitors selected official Thai government sources for visa-exemption changes affecting holders of ordinary Russian passports.
+Производственный воркфлоу n8n, который отслеживает выбранные официальные источники правительства Таиланда на предмет изменений в визовых льготах для владельцев обычных российских паспортов.
 
-The project fetches official pages directly, converts the HTML into compact text, asks OpenAI to classify the current and future visa rules, compares the result with the previous state, and sends Telegram alerts only when the factual state changes. A daily heartbeat confirms that the monitor is still running.
+Проект напрямую загружает официальные страницы, преобразует HTML в компактный текст, просит OpenAI классифицировать текущие и будущие визовые правила, сравнивает результат с предыдущим состоянием и отправляет Telegram-уведомления при обнаружении изменений.
 
-## What it demonstrates
+## Что демонстрирует
 
-- scheduled automation in n8n;
-- direct HTTP retrieval from official sources;
-- HTML cleanup and context preparation;
-- structured LLM classification with the OpenAI Responses API;
-- state persistence with n8n Data Tables;
-- fingerprint-based deduplication;
-- conditional Telegram notifications;
-- daily health/status messages;
-- a separate production error workflow.
+- автоматизацию по расписанию в n8n;
+- прямое HTTP-запрашивание официальных источников;
+- очистку HTML и подготовку контекста;
+- структурную классификацию LLM через OpenAI Responses API;
+- сохранение состояния с помощью n8n Data Tables;
+- дедупликацию по fingerprint;
+- условные Telegram-уведомления;
+- ежедневные сообщения о здоровье и статусе;
+- отдельный продакшн-воркфлоу обработки ошибок.
 
-## Architecture
+## Архитектура
 
 ```text
 Schedule Trigger (06:00 / 12:00 / 18:00 Europe/Moscow)
@@ -29,74 +29,74 @@ Schedule Trigger (06:00 / 12:00 / 18:00 Europe/Moscow)
                                            |
                                 Prepare Official Context
                                            |
-                                  Classify Visa Status
-                                  (OpenAI Responses API)
+                                   Classify Visa Status
+                                   (OpenAI Responses API)
                                            |
                                 Parse Visa Classification
                                            |
-                                  Get Previous State
+                                   Get Previous State
                                            |
-                              Compare With Previous State
-                                  |                  |
-                                  |                  +--> Update State
-                                  |
-                                  +--> Route Notification
-                                         | changed  -> Telegram urgent alert
-                                         | unclear  -> Telegram warning
-                                         | no_change
-                                               |
-                                          18:00 only
-                                               |
-                                          Daily status
+                               Compare With Previous State
+                                   |                  |
+                                   |                  +--> Update State
+                                   |
+                                   +--> Route Notification
+                                          | changed  -> Telegram urgent alert
+                                          | unclear  -> Telegram warning
+                                          | no_change
+                                                |
+                                           18:00 only
+                                                |
+                                           Daily status
 ```
 
-Production execution errors are handled by a separate workflow:
+Ошибки продакшн-выполнения обрабатываются отдельным воркфлоу:
 
 ```text
 Error Trigger -> Prepare Error Message -> Telegram Error Alert
 ```
 
-## Key design decisions
+## Ключевые решения в дизайне
 
-### Official sources first
+### Сначала официальные источники
 
-The workflow downloads the source pages directly instead of asking the model to discover and judge the whole web in one long request. This makes classification faster, easier to debug, and less dependent on search behavior.
+Воркфлоу скачивает страницы источников напрямую вместо того, чтобы просить модель обнаружить и оценить весь веб в одном длинном запросе. Это делает классификацию быстрее, проще в отладке и менее подверженной ошибкам.
 
-Current source pages:
+Текущие страницы источников:
 
-- Royal Thai Embassy in Moscow
-- Thailand Department of Consular Affairs
+- Посольство Таиланда в Москве
+- Департамент консульских дел Таиланда
 
-### Structured classification
+### Структурная классификация
 
-The model must return a strict JSON schema including:
+Модель обязана возвращать строгую JSON-схему, включающую:
 
-- `status`: `no_change`, `changed`, or `unclear`;
-- current stay rule;
-- future rule, if confirmed;
-- effective date;
-- decision status;
-- confidence.
+- `status`: `no_change`, `changed` или `unclear`;
+- текущее правило пребывания;
+- будущее правило, если оно подтверждено;
+- дату вступления в силу;
+- статус решения;
+- уровень уверенности.
 
-The model is instructed to use only the official text supplied by the workflow.
+Модель получает инструкцию использовать только официальный текст, который передаётся воркфлоу.
 
-### Fingerprint deduplication
+### Дедупликация по fingerprint
 
-Free-form summaries are not used to decide whether the state changed.
+Сводки в свободной форме не используются для решения, изменилось ли состояние.
 
-Instead, the workflow creates a stable fingerprint from factual fields:
+Вместо этого воркфлоу создаёт стабильный fingerprint на основе фактических полей:
 
 ```text
 status | current_stay_days | future_stay_days | effective_date | decision_status
 ```
 
-This prevents repeated alerts when the model rewrites the same facts in different words.
+Это предотвращает повторные оповещения, когда модель переписывает одни и те же факты разными словами.
 
-### Daily heartbeat
+### Ежедневный heartbeat
 
-No-change executions stay quiet during the morning and daytime checks. At 18:00 the workflow sends a short daily status so the operator can see that the monitor is alive and the sources were checked.
+Выполнения без изменений остаются тихими в утренних и дневных проверках. В 18:00 воркфлоу отправляет короткий ежедневный статус, чтобы оператор видел, что монитор жив и источники были проверены.
 
-## Repository structure
+## Структура репозитория
 
 ```text
 workflows/
@@ -111,17 +111,17 @@ sample-data/
   visa_monitor_state.csv
 ```
 
-The workflow exports are sanitized. They do not contain API keys, Telegram credentials, private chat IDs, n8n instance IDs, or the author's Data Table ID.
+Экспорты воркфлоу являются очищенными. В них не содержатся API-ключи, учетные данные Telegram, приватные chat IDs, ID экземпляра n8n или ID Data Table автора.
 
-## Setup
+## Настройка
 
-See [`docs/setup.md`](docs/setup.md).
+См. [`docs/setup.md`](docs/setup.md).
 
-## Scope and limitation
+## Объём и ограничения
 
-This version monitors the specific official pages configured in the HTTP Request nodes. It is intentionally not a general-purpose web crawler. If Thai authorities publish future changes only on new URLs without updating the monitored pages, the source list should be updated or supplemented with a separate discovery workflow.
+Эта версия отслеживает только конкретные официальные страницы, настроенные в HTTP Request nodes. Она специально не является универсальным веб-краулером. Если тайские власти опубликуют будущие изменения только на других страницах, этот воркфлоу не будет их видеть без дополнительной настройки.
 
-## Stack
+## Стек
 
 - n8n
 - OpenAI Responses API
@@ -131,18 +131,18 @@ This version monitors the specific official pages configured in the HTTP Request
 - JavaScript / Code nodes
 - HTTP Request nodes
 
-## Portfolio use
+## Использование в портфолио
 
-This is a demonstration of a reliable monitoring pattern that can also be adapted for:
+Это демонстрация надёжного шаблона мониторинга, который также можно адаптировать для:
 
-- regulations and legislation;
-- price or tariff changes;
-- vendor status pages;
-- product documentation;
-- government announcements;
-- compliance monitoring;
-- internal business rules.
+- нормативных актов и законодательства;
+- изменений цен или тарифов;
+- страниц статуса поставщиков;
+- документации по продуктам;
+- государственных объявлений;
+- мониторинга соответствия;
+- внутренних бизнес-правил.
 
-## Security
+## Безопасность
 
-Keep all secrets in n8n Credentials. Do not hard-code OpenAI API keys or Telegram bot tokens inside workflow JSON exports.
+Все секреты храните в Credentials в n8n. Не встраивайте OpenAI API keys или токены Telegram-ботов напрямую в JSON-экспорты воркфлоу.
